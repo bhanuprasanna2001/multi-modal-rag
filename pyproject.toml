@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multi-modal-rag"
+version = "0.1.0"
+description = "Basic multi-modal RAG for datasheets"
+authors = [{name = "You"}]
+requires-python = ">=3.9"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mmrag*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

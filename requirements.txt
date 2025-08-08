@@ -1,0 +1,39 @@
+# Core
+numpy==1.26.4
+pandas==2.2.2
+python-dateutil==2.9.0.post0
+pydantic==2.8.2
+pydantic-core==2.20.1
+rich==13.7.1
+loguru==0.7.2
+
+# PDF & Imaging
+PyMuPDF==1.26.3
+pillow==10.4.0
+
+# Embeddings & Vector Index
+sentence-transformers==3.0.1
+faiss-cpu==1.8.0.post1
+scikit-learn==1.5.1
+
+# Captioning (VLM)
+transformers==4.44.2
+torch==2.3.1
+accelerate==0.34.2
+
+# Generation (local tiny model)
+protobuf==5.27.3
+
+# UI
+streamlit==1.37.1
+
+# Utilities
+tqdm==4.66.4
+jsonlines==4.0.0
+opencv-python==4.10.0.84
+
+# Optional: OpenAI support (set OPENAI_API_KEY)
+openai==1.37.1
+
+# Reproducibility
+python-dotenv==1.0.1

@@ -20,6 +20,7 @@
 *.tax2010
 *.vcf
 *.xml
+artifacts/
 
 ### Database ###
 *.accdb

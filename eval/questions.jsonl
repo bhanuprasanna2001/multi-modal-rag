@@ -1,0 +1,15 @@
+{"q": "What is the operating temperature range?", "expected_contains": "°C", "notes": "Typical spec table"}
+{"q": "What is the supply voltage range?", "expected_contains": "V", "notes": "VDD range"}
+{"q": "What is the typical current consumption?", "expected_contains": "mA", "notes": "power"}
+{"q": "What is the communication interface?", "expected_contains": "I2C", "notes": "interface"}
+{"q": "What is the sensor resolution?", "expected_contains": "bit", "notes": "resolution"}
+{"q": "Which pin is labeled EN?", "image_centric": true, "notes": "pinout diagram"}
+{"q": "What package type is shown?", "image_centric": true, "expected_contains": "QFN", "notes": "package caption"}
+{"q": "What connector type is specified?", "image_centric": true, "expected_contains": "JST", "notes": "connector"}
+{"q": "Which pin is ground?", "image_centric": true, "expected_contains": "GND", "notes": "pinout"}
+{"q": "What is the orientation of pin 1?", "image_centric": true, "expected_contains": "pin 1", "notes": "orientation"}
+{"q": "What is the max input voltage?", "expected_contains": "V", "notes": "abs max"}
+{"q": "What is the operating frequency?", "expected_contains": "Hz", "notes": "clock"}
+{"q": "What is the output type?", "expected_contains": "digital", "notes": "type"}
+{"q": "What is the accuracy?", "expected_contains": "%", "notes": "accuracy"}
+{"q": "What is the storage temperature range?", "expected_contains": "°C", "notes": "storage"}
