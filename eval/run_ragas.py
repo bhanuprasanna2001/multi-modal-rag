@@ -5,9 +5,17 @@ import argparse
 import json
 import os
 import sys
+import warnings
+
+# Fix macOS OMP duplicate library error
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Suppress RAGAS deprecation warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="ragas")
 
 
 def main():
@@ -33,8 +41,10 @@ def main():
             context_precision,
             faithfulness,
         )
+        from ragas.embeddings import LangchainEmbeddingsWrapper
+        from langchain_openai import OpenAIEmbeddings
     except ImportError:
-        print("Install RAGAS first:  pip install ragas datasets")
+        print("Install RAGAS first:  pip install ragas datasets langchain-openai")
         sys.exit(1)
 
     from mmrag.rag import answer_question
@@ -43,11 +53,12 @@ def main():
     with open(args.questions, "r", encoding="utf-8") as f:
         questions = [json.loads(line) for line in f]
 
+    # RAGAS 0.4+ uses: user_input, response, retrieved_contexts, reference
     rows: dict[str, list] = {
-        "question": [],
-        "answer": [],
-        "contexts": [],
-        "ground_truth": [],
+        "user_input": [],
+        "response": [],
+        "retrieved_contexts": [],
+        "reference": [],
     }
 
     total_cost = 0.0
@@ -55,10 +66,10 @@ def main():
         result = answer_question(q["q"])
         total_cost += result["metrics"]["cost_usd"]
 
-        rows["question"].append(q["q"])
-        rows["answer"].append(result["answer"])
-        rows["contexts"].append([h["content"] for h in result["hits"]])
-        rows["ground_truth"].append(q.get("expected", ""))
+        rows["user_input"].append(q["q"])
+        rows["response"].append(result["answer"])
+        rows["retrieved_contexts"].append([h["content"] for h in result["hits"]])
+        rows["reference"].append(q.get("expected", ""))
 
         print(f"[{i}/{len(questions)}] {q['q'][:60]}  "
               f"(${result['metrics']['cost_usd']:.5f})")
@@ -66,12 +77,20 @@ def main():
     ds = Dataset.from_dict(rows)
 
     metrics = [faithfulness, answer_relevancy, context_precision]
-    result = evaluate(ds, metrics=metrics)
+    embeddings = LangchainEmbeddingsWrapper(OpenAIEmbeddings())
+    result = evaluate(ds, metrics=metrics, embeddings=embeddings)
+
+    def _scalar(v):
+        """RAGAS 0.4+ may return a list per metric; average if so."""
+        if isinstance(v, list):
+            nums = [x for x in v if isinstance(x, (int, float))]
+            return round(sum(nums) / len(nums), 4) if nums else 0.0
+        return round(v, 4)
 
     report = {
-        "faithfulness": round(result["faithfulness"], 4),
-        "answer_relevancy": round(result["answer_relevancy"], 4),
-        "context_precision": round(result["context_precision"], 4),
+        "faithfulness": _scalar(result["faithfulness"]),
+        "answer_relevancy": _scalar(result["answer_relevancy"]),
+        "context_precision": _scalar(result["context_precision"]),
         "questions_evaluated": len(questions),
         "rag_cost_usd": round(total_cost, 5),
     }

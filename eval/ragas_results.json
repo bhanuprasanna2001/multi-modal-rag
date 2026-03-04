@@ -1,0 +1,7 @@
+{
+  "faithfulness": 0.7726,
+  "answer_relevancy": 0.98,
+  "context_precision": 0.8519,
+  "questions_evaluated": 15,
+  "rag_cost_usd": 0.00453
+}

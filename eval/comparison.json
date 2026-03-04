@@ -3,24 +3,24 @@
     "label": "k=3",
     "k": 3,
     "questions": 15,
-    "correct": 2,
-    "accuracy": 0.133,
-    "avg_latency_ms": 2475.6,
-    "p50_latency_ms": 2226.8,
-    "p95_latency_ms": 4058.5,
-    "total_cost_usd": 0.00225,
-    "avg_cost_usd": 0.00015
+    "correct": 14,
+    "accuracy": 0.933,
+    "avg_latency_ms": 3211.0,
+    "p50_latency_ms": 3108.7,
+    "p95_latency_ms": 4785.9,
+    "total_cost_usd": 0.00301,
+    "avg_cost_usd": 0.000201
   },
   "config_b": {
     "label": "k=7",
     "k": 7,
     "questions": 15,
-    "correct": 2,
-    "accuracy": 0.133,
-    "avg_latency_ms": 2310.1,
-    "p50_latency_ms": 2033.3,
-    "p95_latency_ms": 3689.8,
-    "total_cost_usd": 0.00439,
-    "avg_cost_usd": 0.000293
+    "correct": 12,
+    "accuracy": 0.8,
+    "avg_latency_ms": 3184.9,
+    "p50_latency_ms": 2786.5,
+    "p95_latency_ms": 5432.5,
+    "total_cost_usd": 0.0058,
+    "avg_cost_usd": 0.000387
   }
 }

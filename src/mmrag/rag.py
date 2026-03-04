@@ -11,9 +11,10 @@ from .index import search
 from .utils import Metrics, Timer
 
 SYSTEM_PROMPT = (
-    "You are a precise assistant answering questions about electronics datasheets. "
-    "Use ONLY the provided context to answer. If the context doesn't contain the "
-    "answer, say 'I don't have enough information to answer this question.'\n\n"
+    "You are a precise assistant answering questions from a corpus of U.S. government "
+    "and public-sector PDF documents. Use ONLY the provided context to answer. "
+    "If the context doesn't contain the answer, say "
+    "'I don't have enough information to answer this question.'\n\n"
     "Rules:\n"
     "- Cite every factual claim with (DOC_ID:PAGE) using the tags from the context\n"
     "- Be concise and specific\n"
