@@ -1,50 +1,83 @@
-import os, sys
+"""Streamlit UI for the Multi-Modal RAG system."""
+
+import os
+
 import streamlit as st
 from PIL import Image
 
-# Ensure src is importable
-REPO_ROOT = os.path.dirname(__file__)
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
-
 from mmrag.rag import answer_question
+from dotenv import load_dotenv
 
-st.set_page_config(page_title="Multi-Modal RAG: Datasheets", layout="wide")
+load_dotenv()
 
-st.title("Basic Multi-Modal RAG for Datasheets")
-st.caption("Single-step QA over text pages and image captions with citations")
+# ── Page config ──
+
+st.set_page_config(page_title="Multi-Modal RAG")
+st.title("Multi-Modal RAG for Datasheets")
+st.caption("Ask questions about technical datasheets — answers cite text and images")
+
+# ── Sidebar ──
 
 with st.sidebar:
     st.header("Settings")
-    k = st.slider("Top-K", 3, 12, 6)
-    artifacts_dir = st.text_input("Artifacts dir", value="artifacts")
+    k = st.slider("Results to retrieve", min_value=3, max_value=12, value=5)
     st.markdown("---")
-    st.write("Set OPENAI_API_KEY in env to use a hosted LLM; otherwise local heuristic fallback is used.")
+    st.markdown("Requires `OPENAI_API_KEY` environment variable.")
 
-q = st.text_input("Ask a question…", placeholder="What is the operating temperature range?")
+# ── API key check ──
 
-if st.button("Ask") or (q and st.session_state.get("last_q") != q):
-    st.session_state["last_q"] = q
-    if not q.strip():
-        st.warning("Please enter a question")
-    else:
-        with st.spinner("Retrieving and answering…"):
-            out = answer_question(q.strip(), k=k, artifacts_dir=artifacts_dir)
-        st.subheader("Answer")
-        st.write(out["answer"])  # includes citations
+if not os.getenv("OPENAI_API_KEY"):
+    st.error("Set `OPENAI_API_KEY` in your environment to use this app.")
+    st.stop()
 
-        st.subheader("Sources")
-        hits = out["hits"]
-        for h in hits:
-            tag = f"({h.get('doc_id')}:{h.get('page')})"
-            if h["type"] == "caption":
-                cols = st.columns([1, 4])
-                with cols[0]:
-                    if h.get("img_path") and os.path.exists(h["img_path"]):
-                        im = Image.open(h["img_path"])  # type: ignore
-                        st.image(im, caption=tag, use_container_width=True)
-                with cols[1]:
-                    st.markdown(f"**Image caption {tag}:** {h['content']}")
-            else:
-                st.markdown(f"**Text {tag}:** {h['content'][:500]}{' …' if len(h['content'])>500 else ''}")
+# ── Query ──
+
+question = st.text_input(
+    "Ask a question…", placeholder="What is the operating temperature range?"
+)
+
+if question and question.strip():
+    with st.spinner("Searching and generating answer…"):
+        try:
+            result = answer_question(question.strip(), k=k)
+        except Exception as e:
+            st.error(str(e))
+            st.stop()
+
+    # Answer
+    st.subheader("Answer")
+    st.write(result["answer"])
+
+    # Metrics
+    m = result["metrics"]
+    cols = st.columns(4)
+    cols[0].metric("Total latency", f"{m['total_ms']:.0f} ms")
+    cols[1].metric("Retrieval", f"{m['retrieval_ms']:.0f} ms")
+    cols[2].metric("Generation", f"{m['generation_ms']:.0f} ms")
+    cols[3].metric("Cost", f"${m['cost_usd']:.5f}")
+
+    # Sources
+    st.subheader("Sources")
+    for hit in result["hits"]:
+        tag = f"({hit.get('doc_id')}:{hit.get('page')})"
+        score = f"score={hit['score']:.4f}"
+
+        if (
+            hit["type"] == "caption"
+            and hit.get("img_path")
+            and os.path.exists(hit["img_path"])
+        ):
+            cols = st.columns([1, 4])
+            with cols[0]:
+                st.image(
+                    Image.open(hit["img_path"]),
+                    caption=tag,
+                    width="stretch",
+                )
+            with cols[1]:
+                st.markdown(f"**Image caption** {tag} ({score})")
+                st.write(hit["content"])
+        else:
+            st.markdown(f"**Text** {tag} ({score})")
+            content = hit["content"]
+            st.write(content[:800] + ("…" if len(content) > 800 else ""))

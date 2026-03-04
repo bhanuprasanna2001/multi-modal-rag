@@ -1,54 +1,98 @@
+"""Image captioning: describe extracted images using OpenAI GPT-4o-mini vision."""
+
 from __future__ import annotations
+
 import os
+import base64
 from typing import List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from loguru import logger
-from PIL import Image
-from transformers import pipeline
+from tqdm import tqdm
+from openai import OpenAI
+
 from .utils import Paths, read_jsonl, save_jsonl
 
+CAPTION_PROMPT = (
+    "Describe this technical image in one detailed paragraph. "
+    "Focus on: component labels, pin names/numbers, values, part numbers, "
+    "connector types, and any text visible in the image. "
+    "Be specific — include every label and number you can read."
+)
 
-# Small, CPU-friendly image captioning model
-# blip-image-captioning-base is relatively light; replace if needed
-DEFAULT_MODEL = "Salesforce/blip-image-captioning-base"
+
+def _caption_one(client: OpenAI, img_path: str, model: str) -> str:
+    """Send a single image to OpenAI vision and get a caption back."""
+    with open(img_path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode("utf-8")
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": CAPTION_PROMPT},
+                {"type": "image_url", "image_url": {
+                    "url": f"data:image/png;base64,{b64}",
+                    "detail": "low",  # cheaper, fast, sufficient for datasheets
+                }},
+            ],
+        }],
+        max_tokens=300,
+        temperature=0.0,
+    )
+    return response.choices[0].message.content.strip()
 
 
-def generate_captions(model_name: str = DEFAULT_MODEL, artifacts_dir: str = "artifacts") -> int:
+def generate_captions(artifacts_dir: str = "artifacts", workers: int = 20) -> int:
+    """Caption all extracted images in parallel using OpenAI vision.
+
+    Uses ThreadPoolExecutor with `workers` threads for concurrent API calls.
+    Returns the number of successfully captioned images.
+    """
+    if not os.getenv("OPENAI_API_KEY"):
+        raise EnvironmentError("OPENAI_API_KEY is required for image captioning.")
+
     paths = Paths(artifacts_dir=artifacts_dir)
-    images_manifest = os.path.join(paths.artifacts_dir, "images.jsonl")
-    if not os.path.exists(images_manifest):
-        logger.error("images.jsonl not found. Run ingestion first.")
+    if not os.path.exists(paths.images_jsonl):
+        logger.error("images.jsonl not found — run ingestion first.")
         return 0
 
-    captioner = pipeline("image-to-text", model=model_name)
+    client = OpenAI()
+    model = os.getenv("OPENAI_VISION_MODEL", "gpt-4o-mini")
+    image_records = read_jsonl(paths.images_jsonl)
 
-    records: List[Dict[str, Any]] = []
-    for rec in read_jsonl(images_manifest):
-        img_path = rec.get("img_path")
-        if not img_path or not os.path.exists(img_path):
-            continue
+    # Filter to images that actually exist on disk
+    valid = [r for r in image_records if os.path.exists(r.get("img_path", ""))]
+    logger.info(f"Captioning {len(valid)} images with {model} ({workers} workers)")
+
+    captions: List[Dict[str, Any]] = []
+
+    def _process(rec: Dict[str, Any]) -> Dict[str, Any] | None:
         try:
-            # Ensure RGB 3-channel image for the processor
-            im = Image.open(img_path).convert("RGB")
-            # Some transformers versions expect positional 'inputs'; pass the PIL image positionally
-            cap = captioner(im, max_new_tokens=30)
-            caption = cap[0]["generated_text"].strip()
+            caption = _caption_one(client, rec["img_path"], model)
+            return {
+                "id": rec["id"],
+                "type": "caption",
+                "doc_id": rec.get("doc_id"),
+                "doc_name": rec.get("doc_name"),
+                "page": rec.get("page"),
+                "img_path": rec["img_path"],
+                "caption": caption,
+            }
         except Exception as e:
-            logger.warning(f"Caption failed for {img_path}: {e}")
-            continue
-        records.append({
-            "id": rec["id"],
-            "type": "caption",
-            "doc_id": rec.get("doc_id"),
-            "doc_name": rec.get("doc_name"),
-            "page": rec.get("page"),
-            "img_path": img_path,
-            "caption": caption,
-        })
+            logger.warning(f"Caption failed for {rec['img_path']}: {e}")
+            return None
 
-    save_jsonl(records, paths.captions_jsonl)
-    logger.info(f"Generated {len(records)} captions")
-    return len(records)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_process, rec): rec for rec in valid}
+        for future in tqdm(
+            as_completed(futures), total=len(futures), desc="Captioning images"
+        ):
+            result = future.result()
+            if result:
+                captions.append(result)
 
-
-if __name__ == "__main__":
-    generate_captions()
+    save_jsonl(captions, paths.captions_jsonl)
+    logger.info(f"Captioned {len(captions)} of {len(valid)} images")
+    return len(captions)

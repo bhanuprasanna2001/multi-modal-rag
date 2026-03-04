@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
-import os, sys, json
+"""Ablation study: rebuild index without image captions to measure their impact."""
 
-REPO_ROOT = os.path.dirname(os.path.dirname(__file__))
-SRC_PATH = os.path.join(REPO_ROOT, "src")
-if SRC_PATH not in sys.path:
-    sys.path.insert(0, SRC_PATH)
+import json
+import os
 
 from mmrag.index import build_index
+from mmrag.utils import Paths
 
 
 def main():
-    # Temporarily ignore captions by renaming file if present
-    art = os.path.join(REPO_ROOT, "artifacts")
-    caps = os.path.join(art, "captions.jsonl")
-    tmp = os.path.join(art, "captions.disabled.jsonl")
-    if os.path.exists(caps):
-        os.replace(caps, tmp)
-        print("Temporarily disabled captions for ablation")
+    paths = Paths()
+    captions = paths.captions_jsonl
+    backup = captions + ".disabled"
+
+    if os.path.exists(captions):
+        os.replace(captions, backup)
+        print("Disabled captions for ablation")
+
     try:
-        n_items, dim = build_index()
-        print(json.dumps({"index_items": n_items, "dim": dim}))
+        stats = build_index()
+        print(json.dumps(stats, indent=2))
     finally:
-        if os.path.exists(tmp):
-            os.replace(tmp, caps)
-            print("Restored captions file")
+        if os.path.exists(backup):
+            os.replace(backup, captions)
+            print("Restored captions")
 
 
 if __name__ == "__main__":
